@@ -1,19 +1,11 @@
-import express from 'express'
-import cors from 'cors'
-import dotenv from 'dotenv'
+import dotenv from 'dotenv';
+import { createServer } from './server.js';
 
-dotenv.config()
+dotenv.config();
 
-const app = express()
-app.use(cors())
-app.use(express.json())
+const app = createServer();
+const PORT = Number(process.env.PORT) || 10000;
 
-app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() })
-})
-
-const PORT = process.env.PORT || 3001
-
-app.listen(PORT, () => {
-  console.log(`🚀 Backend server running on http://localhost:${PORT}`)
-})
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Backend running at http://localhost:${PORT}`);
+});
