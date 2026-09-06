@@ -1,0 +1,1 @@
+supabase дает только 2 письма в час для magic link

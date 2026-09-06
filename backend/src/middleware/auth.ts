@@ -1,38 +1,46 @@
-import type { Request, Response, NextFunction } from 'express';
-import type { IUser } from '../types/index.js';
+import { Request, Response, NextFunction } from 'express'
+import { supabase } from '../lib/supabase.js'
 
-export interface AuthenticatedRequest extends Request {
-  user?: IUser;
+// Расширяем стандартный тип Request в Express, чтобы добавить поле user
+declare global {
+  namespace Express {
+    interface Request {
+      user?: any
+    }
+  }
 }
 
-export function authMiddleware(
-  req: AuthenticatedRequest,
-  res: Response,
-  next: NextFunction
-): void {
-  const authHeader = req.headers.authorization;
+export const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const authHeader = req.headers.authorization
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    res.status(401).json({ success: false, error: 'Unauthorized: missing token' });
-    return;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authorization token is required (Bearer <token>)',
+      })
+    }
+
+    // Извлекаем чистый токен
+    const token = authHeader.split(' ')[1]
+
+    // Отправляем токен в Supabase для проверки подлинности сессии
+    const { data, error } = await supabase.auth.getUser(token)
+
+    if (error || !data.user) {
+      return res.status(401).json({
+        success: false,
+        message: error?.message || 'Invalid or expired token',
+      })
+    }
+
+    // Сохраняем пользователя в объект запроса, чтобы использовать в роутах
+    req.user = data.user
+    next()
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error during authentication',
+    })
   }
-
-  const token = authHeader.slice(7);
-
-  if (token === 'invalid') {
-    res.status(401).json({ success: false, error: 'Unauthorized: invalid token' });
-    return;
-  }
-
-  // Dummy: token format = dummy-token-<userId>
-  // const userId = token.startsWith('dummy-token-') ? token.replace('dummy-token-', '') : token;
-  // const user = dummyUsers.find((u) => u.id === userId);
-
-  // if (!user) {
-  //   res.status(401).json({ success: false, error: 'Unauthorized: user not found' });
-  //   return;
-  // }
-
-  // req.user = user;
-  next();
 }
