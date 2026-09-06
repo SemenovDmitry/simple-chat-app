@@ -1,9 +1,11 @@
-export type IUserStatus = 'online' | 'offline' | 'away' // where to use?
+export type IUserStatus = 'online' | 'offline'
 
 export type IUser = {
   id: string
   email: string
   username: string
+  color: string
+  // last_seen: string | null
   created_at: string
   updated_at: string
 }
@@ -15,11 +17,14 @@ export type IRoom = {
   description: string
   is_private: boolean
   created_at: string
+  updated_at: string
 }
 
 export type IRoomMember = {
   room_id: string
   user_id: string
+  // role: 'owner' | 'admin' | 'member'
+  joined_at: string
 }
 
 export type IMessage = {
@@ -28,15 +33,4 @@ export type IMessage = {
   user_id: string | null
   content: string
   created_at: string
-}
-
-export type IApiResponse<T = unknown> = {
-  success: boolean
-  data?: T
-  error?: string
-  meta?: {
-    total?: number
-    nextCursor?: string | null
-    hasMore?: boolean
-  }
 }
