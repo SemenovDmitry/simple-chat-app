@@ -1,7 +1,7 @@
 name: Deploy Frontend
 on:
   push:
-    branches: [master] # Сработает при пуше в ветку main
+    branches: [master] # Сработает при пуше в ветку master
 
 permissions:
   contents: read
@@ -18,29 +18,29 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 20 # Стабильная LTS-версия (24 еще не вышла/не поддерживается стабильно)
 
-      # Переходим в папку вашего React-приложения внутри монорепозитория
+      # Переходим в папку frontend и ставим зависимости
       - name: Install dependencies
         run: |
-          cd apps/spimple-chat 
+          cd frontend
           npm ci
 
+      # Собираем проект (Vite создает папку dist внутри frontend)
       - name: Build
         run: |
-          cd apps/spimple-chat
+          cd frontend
           npm run build
 
-      # ХАК ДЛЯ REACT ROUTER: Копируем index.html в 404.html
-      # Теперь при перезагрузке страницы GitHub покажет этот файл, и React подхватит роут
+      # ХАК ДЛЯ REACT ROUTER: Исправлен путь, копируем index.html в той же папке dist
       - name: SPA Routing Hack (404.html)
         run: cp frontend/dist/index.html frontend/dist/404.html
 
-      # Загружаем собранные файлы (проверьте, build у вас или dist)
+      # Загружаем собранную папку dist из папки frontend
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: "apps/spimple-chat/dist" # Замените на dist или build
+          path: "frontend/dist"
 
       - name: Deploy to GitHub Pages
         uses: actions/deploy-pages@v4
