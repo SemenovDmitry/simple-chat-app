@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -47,16 +48,18 @@ const Layout = ({ children }: PropsWithChildren) => {
                 </DropdownMenuTrigger>
 
                 <DropdownMenuContent className="w-56" align="end">
-                  <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">
-                        {user.email}
-                      </p>
-                      <p className="text-xs leading-none text-muted-foreground">
-                        Авторизован
-                      </p>
-                    </div>
-                  </DropdownMenuLabel>
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel className="font-normal">
+                      <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-medium leading-none">
+                          {user.email}
+                        </p>
+                        <p className="text-xs leading-none text-muted-foreground">
+                          Авторизован
+                        </p>
+                      </div>
+                    </DropdownMenuLabel>
+                  </DropdownMenuGroup>
 
                   <DropdownMenuSeparator />
 

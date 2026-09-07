@@ -45,7 +45,7 @@ function VerifyToken() {
           login(result.data.access_token)
           setTimeout(() => {
             navigate('/')
-          }, 500);
+          }, 1500);
         } else {
           console.error('Ошибка бэкенда:', result.message)
           setStatus('error')

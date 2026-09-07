@@ -99,7 +99,7 @@ function Login() {
 
         <form onSubmit={handleSubmit(onSubmit)}>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
+            <div className="space-y-2 mb-4">
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"

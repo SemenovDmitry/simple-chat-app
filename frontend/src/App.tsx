@@ -6,7 +6,7 @@ import Router from './Router'
 
 function App() {
   return (
-    <BrowserRouter basename='/simple-chat-app'>
+    <BrowserRouter basename='/simple-chat-app/'>
       <AuthProvider>
         <Layout>
           <Router />
