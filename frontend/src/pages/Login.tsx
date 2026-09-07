@@ -14,6 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { BASE_URL } from '@/consts/api'
 
 const loginSchema = z.object({
   email: z
@@ -42,7 +43,7 @@ function Login() {
     setError(null)
 
     try {
-      const res = await fetch('http://localhost:10000/auth/login', {
+      const res = await fetch(`${BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),

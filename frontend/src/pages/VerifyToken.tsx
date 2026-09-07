@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { useAuth } from '@/contexts/AuthContext'
+import { BASE_URL } from '@/consts/api'
 
 function VerifyToken() {
   const { login } = useAuth()
@@ -26,7 +27,7 @@ function VerifyToken() {
     // 3. Отправляем запрос на ваш бэкенд
     const verifyToken = async () => {
       try {
-        const response = await fetch('http://localhost:10000/auth/verify', {
+        const response = await fetch(`${BASE_URL}/auth/verify`, {
           // укажите ваш порт бэкенда
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

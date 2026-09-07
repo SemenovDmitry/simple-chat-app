@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 
+import { BASE_URL } from '@/consts/api'
+
 interface User {
   id: string
   email: string
@@ -31,7 +33,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const response = await fetch('http://localhost:10000/auth/me', {
+      const response = await fetch(`${BASE_URL}/auth/me`, {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${token}`,
