@@ -36,6 +36,9 @@ jobs:
 
       # 3. Собираем проект
       - name: Build
+        env:
+          # GitHub Actions возьмет значение из настроек репозитория и передаст его в Vite
+          VITE_API_URL: ${{ vars.VITE_API_URL }} 
         run: |
           cd frontend
           pnpm run build
