@@ -43,7 +43,9 @@ function VerifyToken() {
           setStatus('success')
           console.log('Успешная авторизация:', result.data)
           login(result.data.access_token)
-          navigate('/')
+          setTimeout(() => {
+            navigate('/')
+          }, 500);
         } else {
           console.error('Ошибка бэкенда:', result.message)
           setStatus('error')
