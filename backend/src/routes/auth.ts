@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { supabase } from '../lib/supabase.js'
 import { requireAuth } from '../middleware/auth.js'
+import { FRONTEND_BASE_URL } from '../consts/api.js'
 
 const authRouter = Router()
 
@@ -37,7 +38,7 @@ authRouter.post('/login', async (req, res) => {
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
-      emailRedirectTo: 'http://localhost:5173/auth/callback',
+      emailRedirectTo:`${FRONTEND_BASE_URL}/auth/callback`,
     },
   })
 
