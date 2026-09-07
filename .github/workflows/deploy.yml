@@ -1,7 +1,7 @@
 name: Deploy Frontend
 on:
   push:
-    branches: [master] # Сработает при пуше в ветку master
+    branches: [master]
 
 permissions:
   contents: read
@@ -15,32 +15,41 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 1. Устанавливаем pnpm на сервер GitHub перед установкой Node.js
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9 # Укажите вашу мажорную версию pnpm, если нужно (например, 8 или 9)
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20 # Стабильная LTS-версия (24 еще не вышла/не поддерживается стабильно)
+          node-version: 24
+          cache: 'pnpm' # Включаем кеширование для pnpm, чтобы сборка шла быстрее
+          cache-dependency-path: 'frontend/pnpm-lock.yaml'
 
-      # Переходим в папку frontend и ставим зависимости
+      # 2. Переходим в frontend и ставим зависимости через pnpm
       - name: Install dependencies
         run: |
           cd frontend
-          npm ci
+          pnpm i --frozen-lockfile
 
-      # Собираем проект (Vite создает папку dist внутри frontend)
+      # 3. Собираем проект
       - name: Build
         run: |
           cd frontend
-          npm run build
+          pnpm run build
 
-      # ХАК ДЛЯ REACT ROUTER: Исправлен путь, копируем index.html в той же папке dist
+      # 4. Хак для React Router (Vite по умолчанию собирает в frontend/dist)
       - name: SPA Routing Hack (404.html)
         run: cp frontend/dist/index.html frontend/dist/404.html
 
-      # Загружаем собранную папку dist из папки frontend
+      # 5. Загружаем артефакт
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: "frontend/dist"
 
+      # 6. Публикуем на GitHub Pages
       - name: Deploy to GitHub Pages
         uses: actions/deploy-pages@v4
