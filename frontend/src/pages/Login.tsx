@@ -65,7 +65,7 @@ function Login() {
 
   if (isSuccess) {
     return (
-      <div className="min-h-[calc(100vh-5rem)] flex items-center justify-center bg-background px-4">
+      <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center bg-background px-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl">Проверьте почту</CardTitle>
@@ -88,7 +88,7 @@ function Login() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-5rem)] flex items-center justify-center bg-background px-4">
+    <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center bg-background px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center space-y-2">
           <CardTitle className="text-2xl font-bold">Вход в чат</CardTitle>
