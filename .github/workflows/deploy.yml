@@ -1,0 +1,46 @@
+name: Deploy Frontend
+on:
+  push:
+    branches: [master] # Сработает при пуше в ветку main
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # Переходим в папку вашего React-приложения внутри монорепозитория
+      - name: Install dependencies
+        run: |
+          cd apps/spimple-chat 
+          npm ci
+
+      - name: Build
+        run: |
+          cd apps/spimple-chat
+          npm run build
+
+      # ХАК ДЛЯ REACT ROUTER: Копируем index.html в 404.html
+      # Теперь при перезагрузке страницы GitHub покажет этот файл, и React подхватит роут
+      - name: SPA Routing Hack (404.html)
+        run: cp frontend/dist/index.html frontend/dist/404.html
+
+      # Загружаем собранные файлы (проверьте, build у вас или dist)
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: "apps/spimple-chat/dist" # Замените на dist или build
+
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
