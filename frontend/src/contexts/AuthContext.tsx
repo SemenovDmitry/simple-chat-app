@@ -1,30 +1,34 @@
-import React, { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, type PropsWithChildren } from 'react'
 
 import { BASE_URL } from '@/consts/api'
+import type { IUser } from '@/types/models'
+import { AUTH_ACCESS_KEY } from '@/consts/storage'
 
-interface User {
-  id: string
-  email: string
-  metadata?: Record<string, any>
-}
-
-interface AuthContextType {
-  user: User | null
+type IAuthContextType = {
+  user: IUser | null
   loading: boolean
   login: (token: string) => Promise<void>
   logout: () => void
   checkAuth: () => Promise<void>
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined)
+const AuthContext = createContext<IAuthContextType | undefined>(undefined)
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null)
+export const AuthProvider = ({ children }: PropsWithChildren) => {
+  const [user, setUser] = useState<IUser | null>(null)
   const [loading, setLoading] = useState<boolean>(true)
 
-  // Функция запроса данных пользователя с бэкенда
+  const login = async (token: string) => {
+    localStorage.setItem(AUTH_ACCESS_KEY, token)
+  }
+
+  const logout = () => {
+    localStorage.removeItem(AUTH_ACCESS_KEY)
+    setUser(null)
+  }
+
   const checkAuth = async () => {
-    const token = localStorage.getItem('my_app_token')
+    const token = localStorage.getItem(AUTH_ACCESS_KEY)
 
     if (!token) {
       setUser(null)
@@ -46,8 +50,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (response.ok && result.success) {
         setUser(result.data)
       } else {
-        // Если токен невалиден или просрочен — чистим данные
-        localStorage.removeItem('my_app_token')
+        localStorage.removeItem(AUTH_ACCESS_KEY)
         setUser(null)
       }
     } catch (error) {
@@ -56,15 +59,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setLoading(false)
     }
-  }
-
-  const login = async (token: string) => {
-    localStorage.setItem('my_app_token', token)
-  }
-
-  const logout = () => {
-    localStorage.removeItem('my_app_token')
-    setUser(null)
   }
 
   useEffect(() => {

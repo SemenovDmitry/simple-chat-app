@@ -34,11 +34,11 @@ authRouter.post('/login', async (req, res) => {
   }
 
   const { email } = result.data
-
+  console.log('FRONTEND_BASE_URL :>> ', FRONTEND_BASE_URL);
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
-      emailRedirectTo:`${FRONTEND_BASE_URL}/auth/callback`,
+      emailRedirectTo: `${FRONTEND_BASE_URL}/auth/callback`,
     },
   })
 
@@ -56,7 +56,6 @@ authRouter.post('/login', async (req, res) => {
     data: { email },
   })
 })
-
 
 authRouter.post('/verify', async (req, res) => {
   const result = verifySchema.safeParse(req.body)
@@ -93,14 +92,25 @@ authRouter.get('/me', requireAuth, async (req, res) => {
   // Благодаря middleware, объект пользователя уже лежит в req.user
   const user = req.user
 
+  const { data: profile, error } = await supabase
+    .from('profiles')
+    .select('username, color')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  if (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    })
+  }
+
   return res.status(200).json({
     success: true,
     data: {
       id: user.id,
       email: user.email,
-      email_confirmed_at: user.email_confirmed_at,
-      last_sign_in_at: user.last_sign_in_at,
-      metadata: user.user_metadata, // здесь лежат кастомные поля (avatar, name и т.д.)
+      profile,
     },
   })
 })

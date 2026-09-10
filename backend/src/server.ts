@@ -3,6 +3,7 @@ import cors from 'cors'
 
 import healthRouter from './routes/health.js'
 import authRouter from './routes/auth.js'
+import profileRouter from './routes/profile.js'
 
 export function createServer() {
   const app = express()
@@ -13,6 +14,7 @@ export function createServer() {
   // Routes
   app.use(healthRouter)
   app.use('/auth', authRouter)
+  app.use('/profile', profileRouter)
 
   // 404
   app.use((_req, res) => {

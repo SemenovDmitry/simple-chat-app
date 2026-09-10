@@ -3,6 +3,11 @@ export type IUserStatus = 'online' | 'offline'
 export type IUser = {
   id: string
   email: string
+  profile?: IUserProfile
+}
+
+export type IUserProfile = {
+  id: string
   username: string
   color: string
   // last_seen: string | null

@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from 'express'
+
 import { supabase } from '../lib/supabase.js'
+import { IUser } from '../types/models.js'
 
 // Расширяем стандартный тип Request в Express, чтобы добавить поле user
 declare global {
@@ -8,6 +10,10 @@ declare global {
       user?: any
     }
   }
+}
+
+export interface IAuthRequest extends Request {
+  user?: IUser
 }
 
 export const requireAuth = async (req: Request, res: Response, next: NextFunction) => {

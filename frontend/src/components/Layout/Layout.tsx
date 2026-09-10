@@ -23,48 +23,48 @@ const Layout = ({ children }: PropsWithChildren) => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className='min-h-screen bg-background'>
       {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
+      <header className='sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60'>
+        <div className='mx-auto flex h-14 max-w-5xl items-center justify-between px-4'>
           {/* Logo */}
           <Link
-            to="/"
-            className="flex items-center text-lg font-semibold tracking-tight transition-opacity hover:opacity-80"
+            to='/'
+            className='flex items-center text-lg font-semibold tracking-tight transition-opacity hover:opacity-80'
           >
             Simple Chat
           </Link>
 
           {/* Right side */}
-          <div className="flex items-center">
+          <div className='flex items-center'>
             {user ? (
               <DropdownMenu>
-                <DropdownMenuTrigger className="flex items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-                  <Avatar className="h-9 w-9">
-                    <AvatarFallback className="text-xs">
-                      {getInitials(user.email)}
-                    </AvatarFallback>
+                <DropdownMenuTrigger className='flex items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'>
+                  <Avatar className='h-9 w-9'>
+                    <AvatarFallback className='text-xs'>{getInitials(user.email)}</AvatarFallback>
                   </Avatar>
                 </DropdownMenuTrigger>
 
-                <DropdownMenuContent className="w-56" align="end">
+                <DropdownMenuContent className='w-56' align='end'>
                   <DropdownMenuGroup>
-                    <DropdownMenuLabel className="font-normal">
-                      <div className="flex flex-col space-y-1">
-                        <p className="text-sm font-medium leading-none">
-                          {user.email}
-                        </p>
-                        <p className="text-xs leading-none text-muted-foreground">
-                          Авторизован
-                        </p>
-                      </div>
+                    {user.profile && (
+                      <DropdownMenuItem
+                        render={<Link to='/profile' />}
+                        className='text-primary font-semibold cursor-pointer'
+                      >
+                        {user.profile.username}
+                      </DropdownMenuItem>
+                    )}
+
+                    <DropdownMenuLabel className='font-normal'>
+                      <p className='text-sm font-medium leading-none'>{user.email}</p>
                     </DropdownMenuLabel>
                   </DropdownMenuGroup>
 
                   <DropdownMenuSeparator />
 
                   <DropdownMenuItem
-                    className="cursor-pointer text-destructive focus:text-destructive"
+                    className='cursor-pointer text-destructive focus:text-destructive'
                     onClick={logout}
                   >
                     Выйти
@@ -72,8 +72,8 @@ const Layout = ({ children }: PropsWithChildren) => {
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              <Link to="/login" className="flex items-center">
-                <Button size="sm">Войти</Button>
+              <Link to='/login' className='flex items-center'>
+                <Button size='sm'>Войти</Button>
               </Link>
             )}
           </div>
@@ -81,9 +81,7 @@ const Layout = ({ children }: PropsWithChildren) => {
       </header>
 
       {/* Content */}
-      <main className="mx-auto flex max-w-5xl flex-col px-4 py-6">
-        {children}
-      </main>
+      <main className='mx-auto flex max-w-5xl flex-col px-4 py-6'>{children}</main>
     </div>
   )
 }

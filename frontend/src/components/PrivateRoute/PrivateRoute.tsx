@@ -24,6 +24,10 @@ const PrivateRoute = () => {
     return <Navigate to={'/login'} replace />
   }
 
+  if (!user.profile) {
+    return <Navigate to={'/profile'} />
+  }
+
   return <Outlet />
 }
 
