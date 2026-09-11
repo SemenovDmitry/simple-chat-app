@@ -1,14 +1,7 @@
 import { BASE_URL } from '@/consts/api'
-import { AUTH_ACCESS_KEY } from '@/consts/storage'
 import type { IUserProfile } from '@/types/models'
 
-function getAuthHeaders() {
-  const token = localStorage.getItem(AUTH_ACCESS_KEY)
-  return {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  }
-}
+import { getAuthHeaders } from './utils'
 
 export async function getProfile(id: string): Promise<IUserProfile> {
   const res = await fetch(`${BASE_URL}/profile/${id}`, {
