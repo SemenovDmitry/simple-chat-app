@@ -1,4 +1,4 @@
-import type { Server as HttpServer } from 'http'
+import type { Server as HttpServer } from 'node:http'
 import { Server, type Socket } from 'socket.io'
 
 import { supabase } from './supabase.js'
@@ -8,7 +8,10 @@ type ServerToClientEvents = {
 }
 
 type ClientToServerEvents = {
-  'room:join': (roomId: string, ack?: (res: { ok: boolean; error?: string }) => void) => void
+  'room:join': (
+    roomId: string,
+    ack?: (res: { ok: boolean; error?: string }) => void,
+  ) => void
   'room:leave': (roomId: string, ack?: (res: { ok: boolean }) => void) => void
 }
 
@@ -16,7 +19,12 @@ type SocketData = {
   userId: string
 }
 
-type AppSocket = Socket<ClientToServerEvents, ServerToClientEvents, {}, SocketData>
+type AppSocket = Socket<
+  ClientToServerEvents,
+  ServerToClientEvents,
+  {},
+  SocketData
+>
 
 let io: Server<ClientToServerEvents, ServerToClientEvents> | null = null
 
@@ -31,28 +39,31 @@ async function getUserIdFromToken(token: string): Promise<string | null> {
   return data.user.id
 }
 
-async function isMember(roomId: string, userId: string): Promise<boolean> {
+async function roomExists(roomId: string): Promise<boolean> {
   const { data, error } = await supabase
-    .from('room_members')
-    .select('room_id')
-    .eq('room_id', roomId)
-    .eq('user_id', userId)
+    .from('rooms')
+    .select('id')
+    .eq('id', roomId)
     .maybeSingle()
   if (error) return false
   return !!data
 }
 
-export function initSocket(httpServer: HttpServer, corsOrigin: string | string[]) {
+export function initSocket(httpServer: HttpServer, corsOrigin?: string[]) {
   io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
-    ...(corsOrigin && corsOrigin.length ? { cors: { origin: corsOrigin, credentials: true } } : {}),
+    ...(corsOrigin && corsOrigin.length
+      ? { cors: { origin: corsOrigin, credentials: true } }
+      : {}),
   })
 
-  // Auth-middleware: читаем токен из handshake.auth.token
+  // ---- Auth middleware ----
   io.use(async (socket: AppSocket, next) => {
     try {
       const token =
         (socket.handshake.auth?.token as string | undefined) ||
-        (socket.handshake.headers.authorization?.replace(/^Bearer\s+/i, '') as string | undefined)
+        (socket.handshake.headers.authorization?.replace(/^Bearer\s+/i, '') as
+          | string
+          | undefined)
 
       if (!token) return next(new Error('UNAUTHORIZED'))
 
@@ -66,6 +77,7 @@ export function initSocket(httpServer: HttpServer, corsOrigin: string | string[]
     }
   })
 
+  // ---- Connection ----
   io.on('connection', (socket: AppSocket) => {
     const { userId } = socket.data
 
@@ -74,9 +86,11 @@ export function initSocket(httpServer: HttpServer, corsOrigin: string | string[]
         if (typeof roomId !== 'string' || !roomId) {
           return ack?.({ ok: false, error: 'INVALID_ROOM' })
         }
-        if (!(await isMember(roomId, userId))) {
-          return ack?.({ ok: false, error: 'FORBIDDEN' })
+
+        if (!(await roomExists(roomId))) {
+          return ack?.({ ok: false, error: 'NOT_FOUND' })
         }
+
         await socket.join(roomId)
         ack?.({ ok: true })
       } catch {
@@ -88,6 +102,10 @@ export function initSocket(httpServer: HttpServer, corsOrigin: string | string[]
       if (typeof roomId === 'string') await socket.leave(roomId)
       ack?.({ ok: true })
     })
+
+    // userId пригодится позже (presence, typing) — оставляем деструктуризацию,
+    // чтобы не менять сигнатуру, когда добавим
+    void userId
   })
 
   return io

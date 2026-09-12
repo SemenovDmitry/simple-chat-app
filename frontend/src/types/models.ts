@@ -19,15 +19,8 @@ export type IRoom = {
   owner_id: string
   name: string
   description: string
-  is_private: boolean
   created_at: string
   updated_at: string
-}
-
-export type IRoomMember = {
-  room_id: string
-  user_id: string
-  joined_at: string
 }
 
 export type IMessage = {

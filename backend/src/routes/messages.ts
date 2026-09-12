@@ -2,10 +2,10 @@ import { Router } from 'express'
 import { z } from 'zod'
 
 import { supabase } from '../lib/supabase.js'
-import { IAuthRequest, requireAuth } from '../middleware/auth.js'
+import { requireAuth, type IAuthRequest } from '../middleware/auth.js'
 import { getIo } from '../lib/socket.js'
 
-const router = Router()
+const messagesRouter = Router()
 
 const listQuerySchema = z.object({
   before: z.string().datetime().optional(),
@@ -15,17 +15,6 @@ const listQuerySchema = z.object({
 const createBodySchema = z.object({
   content: z.string().trim().min(1).max(2000),
 })
-
-async function isMember(roomId: string, userId: string): Promise<boolean> {
-  const { data, error } = await supabase
-    .from('room_members')
-    .select('room_id')
-    .eq('room_id', roomId)
-    .eq('user_id', userId)
-    .maybeSingle()
-  if (error) throw error
-  return !!data
-}
 
 type ProfileLite = { id: string; username: string; color: string }
 
@@ -46,10 +35,9 @@ async function attachProfiles<T extends { user_id: string | null }>(rows: T[]) {
   }))
 }
 
-// GET /rooms/:id/messages?before=ISO&limit=20
-router.get('/:id/messages', requireAuth, async (req: IAuthRequest, res) => {
+// GET /rooms/:id/messages
+messagesRouter.get('/:id/messages', requireAuth, async (req, res) => {
   const roomId = String(req.params.id)
-  const userId = req.user!.id
 
   const parsed = listQuerySchema.safeParse(req.query)
   if (!parsed.success) {
@@ -58,10 +46,6 @@ router.get('/:id/messages', requireAuth, async (req: IAuthRequest, res) => {
   const { before, limit } = parsed.data
 
   try {
-    if (!(await isMember(roomId, userId))) {
-      return res.status(403).json({ success: false, message: 'Not a member of this room' })
-    }
-
     let query = supabase
       .from('messages')
       .select('id, room_id, user_id, content, created_at')
@@ -76,7 +60,6 @@ router.get('/:id/messages', requireAuth, async (req: IAuthRequest, res) => {
     if (error) throw error
 
     const withProfiles = await attachProfiles(data ?? [])
-    // отдаём в хронологическом порядке — так удобнее рендерить
     withProfiles.reverse()
 
     return res.json({
@@ -90,7 +73,7 @@ router.get('/:id/messages', requireAuth, async (req: IAuthRequest, res) => {
 })
 
 // POST /rooms/:id/messages
-router.post('/:id/messages', requireAuth, async (req: IAuthRequest, res) => {
+messagesRouter.post('/:id/messages', requireAuth, async (req: IAuthRequest, res) => {
   const roomId = String(req.params.id)
   const userId = req.user!.id
 
@@ -100,8 +83,15 @@ router.post('/:id/messages', requireAuth, async (req: IAuthRequest, res) => {
   }
 
   try {
-    if (!(await isMember(roomId, userId))) {
-      return res.status(403).json({ success: false, message: 'Not a member of this room' })
+    // Комната вообще существует?
+    const { data: room } = await supabase
+      .from('rooms')
+      .select('id')
+      .eq('id', roomId)
+      .maybeSingle()
+
+    if (!room) {
+      return res.status(404).json({ success: false, message: 'Room not found' })
     }
 
     const { data, error } = await supabase
@@ -122,4 +112,4 @@ router.post('/:id/messages', requireAuth, async (req: IAuthRequest, res) => {
   }
 })
 
-export default router
+export default messagesRouter

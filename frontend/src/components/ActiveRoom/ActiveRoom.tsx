@@ -1,12 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Settings } from 'lucide-react'
 
-import { getRoom, getRoomMembers } from '@/api/room'
-import {
-  createMessage,
-  getMessages,
-  type IMessageWithUser,
-} from '@/api/message'
+import { getRoom } from '@/api/room'
+import { createMessage, getMessages, type IMessageWithUser } from '@/api/message'
 import type { IRoom } from '@/types/models'
 import handleError from '@/utils/handleError'
 import {
@@ -21,10 +17,8 @@ import { useSocket } from '@/contexts/SocketContext'
 
 import EditRoomModal from '../UpdateRoomModal'
 import DeleteRoomDialog from './components/DeleteRoomDialog'
-import JoinRoomButton from './components/JoinRoomButton'
-import LeaveRoomDialog from './components/LeaveRoomDialog'
-import MessageInput from './components/MessageInput'
 import MessageList from './components/MessageList'
+import MessageInput from './components/MessageInput'
 
 
 type ActiveRoomProps = {
@@ -41,7 +35,6 @@ const ActiveRoom = ({ roomId, setRoomId, fetchRooms }: ActiveRoomProps) => {
   const { socket, connected } = useSocket()
 
   const [room, setRoom] = useState<IRoom | null>(null)
-  const [members, setMembers] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
@@ -52,10 +45,8 @@ const ActiveRoom = ({ roomId, setRoomId, fetchRooms }: ActiveRoomProps) => {
 
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
-  const [leaveOpen, setLeaveOpen] = useState(false)
 
   const isOwner = room?.owner_id === user?.id
-  const isMember = user ? members.includes(user.id) : false
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -68,20 +59,16 @@ const ActiveRoom = ({ roomId, setRoomId, fetchRooms }: ActiveRoomProps) => {
     return el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BOTTOM_PX
   }
 
-  // ---- Загрузка комнаты и участников ----
+  // ---- Комната ----
   useEffect(() => {
     let ignore = false
-
     setLoading(true)
     setRoom(null)
-    setMembers([])
     setError(false)
 
-    Promise.all([getRoom(roomId), getRoomMembers(roomId)])
-      .then(([r, m]) => {
-        if (ignore) return
-        setRoom(r)
-        setMembers(m.map((x) => x.user_id))
+    getRoom(roomId)
+      .then((r) => {
+        if (!ignore) setRoom(r)
       })
       .catch((err) => {
         if (ignore) return
@@ -97,14 +84,8 @@ const ActiveRoom = ({ roomId, setRoomId, fetchRooms }: ActiveRoomProps) => {
     }
   }, [roomId])
 
-  // ---- Загрузка истории сообщений ----
+  // ---- История сообщений ----
   useEffect(() => {
-    if (!isMember) {
-      setMessages([])
-      setHasMore(false)
-      return
-    }
-
     let ignore = false
     setMessagesLoading(true)
     setMessages([])
@@ -112,7 +93,6 @@ const ActiveRoom = ({ roomId, setRoomId, fetchRooms }: ActiveRoomProps) => {
     getMessages(roomId, { limit: PAGE_SIZE })
       .then(({ items, hasMore }) => {
         if (ignore) return
-        // На всякий случай сортируем — на случай race REST vs socket
         items.sort((a, b) => a.created_at.localeCompare(b.created_at))
         setMessages(items)
         setHasMore(hasMore)
@@ -128,11 +108,11 @@ const ActiveRoom = ({ roomId, setRoomId, fetchRooms }: ActiveRoomProps) => {
     return () => {
       ignore = true
     }
-  }, [roomId, isMember])
+  }, [roomId])
 
   // ---- Socket: join/leave комнаты ----
   useEffect(() => {
-    if (!socket || !isMember) return
+    if (!socket) return
 
     const join = () => {
       socket.emit('room:join', roomId, (res) => {
@@ -147,9 +127,9 @@ const ActiveRoom = ({ roomId, setRoomId, fetchRooms }: ActiveRoomProps) => {
       socket.off('connect', join)
       socket.emit('room:leave', roomId)
     }
-  }, [socket, isMember, roomId])
+  }, [socket, roomId])
 
-  // ---- Socket: приём новых сообщений ----
+  // ---- Socket: приём новых ----
   useEffect(() => {
     if (!socket) return
 
@@ -171,7 +151,7 @@ const ActiveRoom = ({ roomId, setRoomId, fetchRooms }: ActiveRoomProps) => {
     }
   }, [socket, user?.id])
 
-  // ---- Скролл: вниз при новом, восстановление позиции при prepend ----
+  // ---- Скролл ----
   useLayoutEffect(() => {
     const el = scrollRef.current
     if (!el) return
@@ -243,12 +223,6 @@ const ActiveRoom = ({ roomId, setRoomId, fetchRooms }: ActiveRoomProps) => {
     }
   }
 
-  const refreshMembership = () => {
-    getRoomMembers(roomId)
-      .then((m) => setMembers(m.map((x) => x.user_id)))
-      .catch(handleError)
-  }
-
   // ---- Ранние возвраты ----
   if (loading) {
     return (
@@ -274,8 +248,6 @@ const ActiveRoom = ({ roomId, setRoomId, fetchRooms }: ActiveRoomProps) => {
     )
   }
 
-  const canJoin = !isMember && !room.is_private
-
   return (
     <div className='flex h-full min-h-0 flex-col'>
       <header className='flex items-start justify-between gap-3 border-b pb-4'>
@@ -283,35 +255,23 @@ const ActiveRoom = ({ roomId, setRoomId, fetchRooms }: ActiveRoomProps) => {
           <div className='flex items-center gap-2'>
             <h2 className='truncate text-lg font-semibold tracking-tight'>{room.name}</h2>
 
-            {room.is_private ? (
-              <span className='inline-flex items-center rounded-full border border-dashed border-muted-foreground/40 px-2 py-0.5 text-[10px] font-medium text-muted-foreground'>
-                private
-              </span>
-            ) : (
-              <span className='inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary'>
-                public
-              </span>
-            )}
-
-            {isMember && (
+            <span
+              className={
+                connected
+                  ? 'inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600'
+                  : 'inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground'
+              }
+              title={connected ? 'Connected' : 'Connecting…'}
+            >
               <span
                 className={
                   connected
-                    ? 'inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600'
-                    : 'inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground'
+                    ? 'size-1.5 rounded-full bg-emerald-500'
+                    : 'size-1.5 rounded-full bg-muted-foreground'
                 }
-                title={connected ? 'Connected' : 'Connecting…'}
-              >
-                <span
-                  className={
-                    connected
-                      ? 'size-1.5 rounded-full bg-emerald-500'
-                      : 'size-1.5 rounded-full bg-muted-foreground'
-                  }
-                />
-                {connected ? 'live' : 'offline'}
-              </span>
-            )}
+              />
+              {connected ? 'live' : 'offline'}
+            </span>
           </div>
 
           {room.description && (
@@ -319,9 +279,7 @@ const ActiveRoom = ({ roomId, setRoomId, fetchRooms }: ActiveRoomProps) => {
           )}
         </div>
 
-        {canJoin && <JoinRoomButton roomId={room.id} onSuccess={refreshMembership} />}
-
-        {isMember && (
+        {isOwner && (
           <DropdownMenu>
             <DropdownMenuTrigger
               render={
@@ -338,24 +296,13 @@ const ActiveRoom = ({ roomId, setRoomId, fetchRooms }: ActiveRoomProps) => {
             />
 
             <DropdownMenuContent align='end'>
-              {isOwner ? (
-                <>
-                  <DropdownMenuItem onClick={() => setEditOpen(true)}>Edit</DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => setDeleteOpen(true)}
-                    className='text-destructive focus:text-destructive'
-                  >
-                    Delete
-                  </DropdownMenuItem>
-                </>
-              ) : (
-                <DropdownMenuItem
-                  onClick={() => setLeaveOpen(true)}
-                  className='text-destructive focus:text-destructive'
-                >
-                  Leave
-                </DropdownMenuItem>
-              )}
+              <DropdownMenuItem onClick={() => setEditOpen(true)}>Edit</DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setDeleteOpen(true)}
+                className='text-destructive focus:text-destructive'
+              >
+                Delete
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         )}
@@ -381,64 +328,40 @@ const ActiveRoom = ({ roomId, setRoomId, fetchRooms }: ActiveRoomProps) => {
         }}
       />
 
-      <LeaveRoomDialog
-        open={leaveOpen}
-        onOpenChange={setLeaveOpen}
-        roomId={room.id}
-        roomName={room.name}
-        onSuccess={() => {
-          setRoomId(null)
-          fetchRooms()
-        }}
-      />
-
       {/* Messages */}
-      {isMember ? (
-        <div
-          ref={scrollRef}
-          onScroll={handleScroll}
-          className='flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto py-4 pr-1'
-        >
-          {messagesLoading ? (
-            <div className='flex flex-1 items-center justify-center text-sm text-muted-foreground'>
-              Loading messages...
-            </div>
-          ) : !messages.length ? (
-            <div className='flex flex-1 flex-col items-center justify-center gap-2 text-muted-foreground'>
-              <p className='text-sm font-medium'>No messages yet</p>
-              <p className='text-xs'>Start the conversation</p>
-            </div>
-          ) : (
-            <>
-              {loadingOlder && (
-                <div className='py-1 text-center text-xs text-muted-foreground'>
-                  Loading older…
-                </div>
-              )}
-              {!hasMore && messages.length > PAGE_SIZE && (
-                <div className='py-1 text-center text-xs text-muted-foreground'>
-                  Beginning of the conversation
-                </div>
-              )}
-              <MessageList messages={messages} currentUserId={user?.id ?? null} />
-            </>
-          )}
-          <div ref={bottomRef} />
-        </div>
-      ) : (
-        <div className='flex flex-1 flex-col items-center justify-center gap-2 text-muted-foreground'>
-          <p className='text-sm font-medium'>
-            {room.is_private ? 'Private room' : 'Join the room to read messages'}
-          </p>
-          <p className='text-xs'>
-            {room.is_private
-              ? 'Ask the owner for an invite'
-              : 'Press Join to become a member'}
-          </p>
-        </div>
-      )}
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className='flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto py-4 pr-1'
+      >
+        {messagesLoading ? (
+          <div className='flex flex-1 items-center justify-center text-sm text-muted-foreground'>
+            Loading messages...
+          </div>
+        ) : !messages.length ? (
+          <div className='flex flex-1 flex-col items-center justify-center gap-2 text-muted-foreground'>
+            <p className='text-sm font-medium'>No messages yet</p>
+            <p className='text-xs'>Start the conversation</p>
+          </div>
+        ) : (
+          <>
+            {loadingOlder && (
+              <div className='py-1 text-center text-xs text-muted-foreground'>
+                Loading older…
+              </div>
+            )}
+            {!hasMore && messages.length > PAGE_SIZE && (
+              <div className='py-1 text-center text-xs text-muted-foreground'>
+                Beginning of the conversation
+              </div>
+            )}
+            <MessageList messages={messages} currentUserId={user?.id ?? null} />
+          </>
+        )}
+        <div ref={bottomRef} />
+      </div>
 
-      {isMember && <MessageInput onSend={handleSend} disabled={!connected} />}
+      <MessageInput onSend={handleSend} disabled={!connected} />
     </div>
   )
 }

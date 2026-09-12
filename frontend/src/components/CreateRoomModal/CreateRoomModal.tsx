@@ -22,7 +22,6 @@ const createRoomSchema = z.object({
     .min(1, 'Name is required')
     .min(2, 'Name must be at least 2 characters')
     .max(50, 'Name must be at most 50 characters'),
-  is_private: z.boolean().default(false),
 })
 
 type ICreateRoomFormInput = z.input<typeof createRoomSchema>
@@ -47,7 +46,6 @@ const CreateRoomModal = ({ open, onClose, onSuccess }: ICreateRoomModalProps) =>
     resolver: zodResolver(createRoomSchema),
     defaultValues: {
       name: '',
-      is_private: false,
     },
   })
 
@@ -65,7 +63,6 @@ const CreateRoomModal = ({ open, onClose, onSuccess }: ICreateRoomModalProps) =>
     try {
       const payload: ICreateRoom = {
         name: data.name.trim(),
-        is_private: data.is_private,
       }
 
       const res = await createRoom(payload)
@@ -102,16 +99,6 @@ const CreateRoomModal = ({ open, onClose, onSuccess }: ICreateRoomModalProps) =>
             />
             {errors.name && <p className='text-xs text-destructive'>{errors.name.message}</p>}
           </div>
-
-          <label className='flex items-center gap-2 text-sm'>
-            <input
-              type='checkbox'
-              className='size-4 rounded border'
-              disabled={loading}
-              {...register('is_private')}
-            />
-            Private room
-          </label>
 
           {error && (
             <p className='rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive'>
