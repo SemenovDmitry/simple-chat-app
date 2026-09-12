@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Settings } from 'lucide-react'
 
 import { getRoom, getRoomMembers } from '@/api/room'
+import { createMessage, getMessages, type IMessageWithUser } from '@/api/message'
 import type { IRoom } from '@/types/models'
 import handleError from '@/utils/handleError'
 import {
@@ -17,12 +18,16 @@ import EditRoomModal from '../UpdateRoomModal'
 import DeleteRoomDialog from './components/DeleteRoomDialog'
 import JoinRoomButton from './components/JoinRoomButton'
 import LeaveRoomDialog from './components/LeaveRoomDialog'
+import MessageInput from './components/MessageInput'
+import MessageList from './components/MessageList'
 
 type ActiveRoomProps = {
   roomId: string
   setRoomId: React.Dispatch<React.SetStateAction<string | null>>
   fetchRooms: () => void
 }
+
+const PAGE_SIZE = 20
 
 const ActiveRoom = ({ roomId, setRoomId, fetchRooms }: ActiveRoomProps) => {
   const { user } = useAuth()
@@ -32,6 +37,11 @@ const ActiveRoom = ({ roomId, setRoomId, fetchRooms }: ActiveRoomProps) => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
+  const [messages, setMessages] = useState<IMessageWithUser[]>([])
+  const [messagesLoading, setMessagesLoading] = useState(false)
+  const [loadingOlder, setLoadingOlder] = useState(false)
+  const [hasMore, setHasMore] = useState(false)
+
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [leaveOpen, setLeaveOpen] = useState(false)
@@ -39,6 +49,12 @@ const ActiveRoom = ({ roomId, setRoomId, fetchRooms }: ActiveRoomProps) => {
   const isOwner = room?.owner_id === user?.id
   const isMember = user ? members.includes(user.id) : false
 
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const bottomRef = useRef<HTMLDivElement>(null)
+  const atBottomRef = useRef(true)
+  const snapshotRef = useRef<{ height: number; top: number } | null>(null)
+
+  // ---- Загрузка комнаты и участников ----
   useEffect(() => {
     let ignore = false
 
@@ -67,22 +83,106 @@ const ActiveRoom = ({ roomId, setRoomId, fetchRooms }: ActiveRoomProps) => {
     }
   }, [roomId])
 
+  // ---- Загрузка сообщений (когда пользователь — участник) ----
+  useEffect(() => {
+    if (!isMember) {
+      setMessages([])
+      setHasMore(false)
+      return
+    }
+
+    let ignore = false
+    setMessagesLoading(true)
+    setMessages([])
+
+    getMessages(roomId, { limit: PAGE_SIZE })
+      .then(({ items, hasMore }) => {
+        if (ignore) return
+        setMessages(items)
+        setHasMore(hasMore)
+        atBottomRef.current = true
+      })
+      .catch((err) => {
+        if (!ignore) handleError(err)
+      })
+      .finally(() => {
+        if (!ignore) setMessagesLoading(false)
+      })
+
+    return () => {
+      ignore = true
+    }
+  }, [roomId, isMember])
+
+  // ---- Скролл: вниз при новом сообщении, восстановление позиции при prepend ----
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+
+    if (snapshotRef.current) {
+      const delta = el.scrollHeight - snapshotRef.current.height
+      el.scrollTop = snapshotRef.current.top + delta
+      snapshotRef.current = null
+      return
+    }
+
+    if (atBottomRef.current) {
+      el.scrollTop = el.scrollHeight
+      bottomRef.current?.scrollIntoView({ behavior: 'auto' })
+    }
+  }, [messages.length])
+
+  const handleScroll = () => {
+    const el = scrollRef.current
+    if (!el) return
+
+    atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+
+    if (el.scrollTop < 60 && hasMore && !loadingOlder && !messagesLoading && messages.length) {
+      handleLoadOlder()
+    }
+  }
+
+  const handleLoadOlder = useCallback(async () => {
+    const el = scrollRef.current
+    if (!el || !messages.length) return
+
+    snapshotRef.current = { height: el.scrollHeight, top: el.scrollTop }
+    setLoadingOlder(true)
+    try {
+      const { items, hasMore } = await getMessages(roomId, {
+        before: messages[0].created_at,
+        limit: PAGE_SIZE,
+      })
+      setMessages((prev) => [...items, ...prev])
+      setHasMore(hasMore)
+    } catch (err) {
+      snapshotRef.current = null
+      handleError(err)
+    } finally {
+      setLoadingOlder(false)
+    }
+  }, [messages, roomId])
+
+  const handleSend = async (content: string) => {
+    try {
+      const created = await createMessage(roomId, content)
+      atBottomRef.current = true
+      setMessages((prev) => [...prev, created])
+    } catch (err) {
+      handleError(err)
+      // пробрасываем дальше, чтобы MessageInput не очищал поле
+      throw err
+    }
+  }
+
   const refreshMembership = () => {
     getRoomMembers(roomId)
       .then((m) => setMembers(m.map((x) => x.user_id)))
       .catch(handleError)
   }
 
-  const handleJoined = () => {
-    refreshMembership()
-    fetchRooms()
-  }
-
-  const handleLeft = () => {
-    setRoomId(null)
-    fetchRooms()
-  }
-
+  // ---- Ранние возвраты ----
   if (loading) {
     return (
       <div className='flex h-full items-center justify-center text-sm text-muted-foreground'>
@@ -108,10 +208,9 @@ const ActiveRoom = ({ roomId, setRoomId, fetchRooms }: ActiveRoomProps) => {
   }
 
   const canJoin = !isMember && !room.is_private
-  const canLeave = isMember && !isOwner
 
   return (
-    <div className='flex h-full flex-col'>
+    <div className='flex h-full min-h-0 flex-col'>
       <header className='flex items-start justify-between gap-3 border-b pb-4'>
         <div className='min-w-0 space-y-1'>
           <div className='flex items-center gap-2'>
@@ -133,7 +232,7 @@ const ActiveRoom = ({ roomId, setRoomId, fetchRooms }: ActiveRoomProps) => {
           )}
         </div>
 
-        {canJoin && <JoinRoomButton roomId={room.id} onSuccess={handleJoined} />}
+        {canJoin && <JoinRoomButton roomId={room.id} onSuccess={refreshMembership} />}
 
         {isMember && (
           <DropdownMenu>
@@ -150,9 +249,8 @@ const ActiveRoom = ({ roomId, setRoomId, fetchRooms }: ActiveRoomProps) => {
                 </Button>
               }
             />
-
             <DropdownMenuContent align='end'>
-              {isOwner && (
+              {isOwner ? (
                 <>
                   <DropdownMenuItem onClick={() => setEditOpen(true)}>Edit</DropdownMenuItem>
                   <DropdownMenuItem
@@ -162,9 +260,7 @@ const ActiveRoom = ({ roomId, setRoomId, fetchRooms }: ActiveRoomProps) => {
                     Delete
                   </DropdownMenuItem>
                 </>
-              )}
-
-              {canLeave && (
+              ) : (
                 <DropdownMenuItem
                   onClick={() => setLeaveOpen(true)}
                   className='text-destructive focus:text-destructive'
@@ -181,7 +277,9 @@ const ActiveRoom = ({ roomId, setRoomId, fetchRooms }: ActiveRoomProps) => {
         open={editOpen}
         room={room}
         onClose={() => setEditOpen(false)}
-        onSuccess={(updated) => setRoom((prev) => (prev ? { ...prev, ...updated } : updated))}
+        onSuccess={(updated) =>
+          setRoom((prev) => (prev ? { ...prev, ...updated } : updated))
+        }
       />
 
       <DeleteRoomDialog
@@ -200,14 +298,44 @@ const ActiveRoom = ({ roomId, setRoomId, fetchRooms }: ActiveRoomProps) => {
         onOpenChange={setLeaveOpen}
         roomId={room.id}
         roomName={room.name}
-        onSuccess={handleLeft}
+        onSuccess={() => {
+          setRoomId(null)
+          fetchRooms()
+        }}
       />
 
-      {/* Messages area */}
+      {/* Messages */}
       {isMember ? (
-        <div className='flex flex-1 flex-col items-center justify-center gap-2 text-muted-foreground'>
-          <p className='text-sm font-medium'>No messages yet</p>
-          <p className='text-xs'>Start the conversation</p>
+        <div
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className='flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto py-4 pr-1'
+        >
+          {messagesLoading ? (
+            <div className='flex flex-1 items-center justify-center text-sm text-muted-foreground'>
+              Loading messages...
+            </div>
+          ) : !messages.length ? (
+            <div className='flex flex-1 flex-col items-center justify-center gap-2 text-muted-foreground'>
+              <p className='text-sm font-medium'>No messages yet</p>
+              <p className='text-xs'>Start the conversation</p>
+            </div>
+          ) : (
+            <>
+              {loadingOlder && (
+                <div className='py-1 text-center text-xs text-muted-foreground'>
+                  Loading older…
+                </div>
+              )}
+              {!hasMore && messages.length > PAGE_SIZE && (
+                <div className='py-1 text-center text-xs text-muted-foreground'>
+                  Beginning of the conversation
+                </div>
+              )}
+              <MessageList messages={messages} currentUserId={user?.id ?? null} />
+            </>
+          )}
+          <div ref={bottomRef} />
         </div>
       ) : (
         <div className='flex flex-1 flex-col items-center justify-center gap-2 text-muted-foreground'>
@@ -220,14 +348,7 @@ const ActiveRoom = ({ roomId, setRoomId, fetchRooms }: ActiveRoomProps) => {
         </div>
       )}
 
-      {/* Input stub — только для участников */}
-      {isMember && (
-        <div className='border-t pt-4'>
-          <div className='pointer-events-none flex items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-sm text-muted-foreground'>
-            Message input will be here...
-          </div>
-        </div>
-      )}
+      {isMember && <MessageInput onSend={handleSend} />}
     </div>
   )
 }

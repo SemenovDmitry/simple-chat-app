@@ -5,6 +5,7 @@ import healthRouter from './routes/health.js'
 import authRouter from './routes/auth.js'
 import profileRouter from './routes/profile.js'
 import roomsRouter from './routes/rooms.js'
+import messagesRouter from './routes/messages.js'
 
 export function createServer() {
   const app = express()
@@ -17,7 +18,8 @@ export function createServer() {
   app.use('/auth', authRouter)
   app.use('/profile', profileRouter)
   app.use('/rooms', roomsRouter)
-
+  app.use('/rooms', messagesRouter)
+  
   // 404
   app.use((_req, res) => {
     res.status(404).json({ success: false, error: 'Not found' })
