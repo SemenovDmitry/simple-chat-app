@@ -27,7 +27,6 @@ const editRoomSchema = z.object({
     .string()
     .max(200, 'Description must be at most 200 characters')
     .optional(),
-  is_private: z.boolean().default(false),
 })
 
 type IEditRoomFormInput = z.input<typeof editRoomSchema>
@@ -40,7 +39,12 @@ type EditRoomModalProps = {
   onSuccess?: (data: IRoom) => void
 }
 
-const EditRoomModal = ({ open, room, onClose, onSuccess }: EditRoomModalProps) => {
+const EditRoomModal = ({
+  open,
+  room,
+  onClose,
+  onSuccess,
+}: EditRoomModalProps) => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -54,7 +58,6 @@ const EditRoomModal = ({ open, room, onClose, onSuccess }: EditRoomModalProps) =
     defaultValues: {
       name: room.name,
       description: room.description ?? '',
-      is_private: room.is_private,
     },
   })
 
@@ -63,7 +66,6 @@ const EditRoomModal = ({ open, room, onClose, onSuccess }: EditRoomModalProps) =
       reset({
         name: room.name,
         description: room.description ?? '',
-        is_private: room.is_private,
       })
       setError(null)
     }
@@ -83,7 +85,6 @@ const EditRoomModal = ({ open, room, onClose, onSuccess }: EditRoomModalProps) =
       const payload: IUpdateRoom = {
         name: data.name.trim(),
         description: data.description?.trim() || '',
-        is_private: data.is_private,
       }
 
       const res = await updateRoom(room.id, payload)
@@ -92,9 +93,7 @@ const EditRoomModal = ({ open, room, onClose, onSuccess }: EditRoomModalProps) =
       onSuccess?.(res)
     } catch (err: any) {
       const message =
-        err?.response?.data?.message ||
-        err?.message ||
-        'Failed to update room'
+        err?.response?.data?.message || err?.message || 'Failed to update room'
 
       setError(message)
       handleError(err)
@@ -105,66 +104,61 @@ const EditRoomModal = ({ open, room, onClose, onSuccess }: EditRoomModalProps) =
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
-      <DialogContent className="sm:max-w-sm">
+      <DialogContent className='sm:max-w-sm'>
         <DialogHeader>
           <DialogTitle>Edit room</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onEditRoom)} className="flex flex-col gap-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="edit-name">Name</Label>
+        <form
+          onSubmit={handleSubmit(onEditRoom)}
+          className='flex flex-col gap-4'
+        >
+          <div className='space-y-1.5'>
+            <Label htmlFor='edit-name'>Name</Label>
             <Input
-              id="edit-name"
-              placeholder="Room name"
+              id='edit-name'
+              placeholder='Room name'
               disabled={loading}
               autoComplete='off'
               {...register('name')}
             />
             {errors.name && (
-              <p className="text-xs text-destructive">{errors.name.message}</p>
+              <p className='text-xs text-destructive'>{errors.name.message}</p>
             )}
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="edit-description">Description</Label>
+          <div className='space-y-1.5'>
+            <Label htmlFor='edit-description'>Description</Label>
             <Input
-              id="edit-description"
-              placeholder="Optional description"
+              id='edit-description'
+              placeholder='Optional description'
               disabled={loading}
               autoComplete='off'
               {...register('description')}
             />
             {errors.description && (
-              <p className="text-xs text-destructive">{errors.description.message}</p>
+              <p className='text-xs text-destructive'>
+                {errors.description.message}
+              </p>
             )}
           </div>
 
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              className="size-4 rounded border"
-              disabled={loading}
-              {...register('is_private')}
-            />
-            Private room
-          </label>
-
           {error && (
-            <p className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            <p className='rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive'>
               {error}
             </p>
           )}
 
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className='gap-2 sm:gap-0'>
             <Button
-              type="button"
-              variant="outline"
+              type='button'
+              variant='outline'
               onClick={handleClose}
               disabled={loading}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type='submit' disabled={loading}>
               {loading ? 'Saving...' : 'Save'}
             </Button>
           </DialogFooter>
