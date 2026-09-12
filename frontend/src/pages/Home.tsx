@@ -5,6 +5,7 @@ import ActiveRoom from '@/components/ActiveRoom'
 import type { IRoom } from '@/types/models'
 import { getRooms } from '@/api/room'
 import handleError from '@/utils/handleError'
+import { SocketProvider } from '@/contexts/SocketContext'
 
 function Home() {
   const [roomId, setRoomId] = useState<string | null>(null)
@@ -49,4 +50,10 @@ function Home() {
   )
 }
 
-export default Home
+const WrappedHome = () => (
+  <SocketProvider>
+    <Home />
+  </SocketProvider>
+)
+
+export default WrappedHome

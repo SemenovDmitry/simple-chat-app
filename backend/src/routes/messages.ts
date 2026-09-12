@@ -3,6 +3,7 @@ import { z } from 'zod'
 
 import { supabase } from '../lib/supabase.js'
 import { IAuthRequest, requireAuth } from '../middleware/auth.js'
+import { getIo } from '../lib/socket.js'
 
 const router = Router()
 
@@ -111,6 +112,8 @@ router.post('/:id/messages', requireAuth, async (req: IAuthRequest, res) => {
     if (error) throw error
 
     const [withProfile] = await attachProfiles([data])
+
+    getIo().to(roomId).emit('message:new', withProfile)
 
     return res.status(201).json({ success: true, data: withProfile })
   } catch (err) {

@@ -2,7 +2,11 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { Settings } from 'lucide-react'
 
 import { getRoom, getRoomMembers } from '@/api/room'
-import { createMessage, getMessages, type IMessageWithUser } from '@/api/message'
+import {
+  createMessage,
+  getMessages,
+  type IMessageWithUser,
+} from '@/api/message'
 import type { IRoom } from '@/types/models'
 import handleError from '@/utils/handleError'
 import {
@@ -13,6 +17,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/contexts/AuthContext'
+import { useSocket } from '@/contexts/SocketContext'
 
 import EditRoomModal from '../UpdateRoomModal'
 import DeleteRoomDialog from './components/DeleteRoomDialog'
@@ -21,6 +26,7 @@ import LeaveRoomDialog from './components/LeaveRoomDialog'
 import MessageInput from './components/MessageInput'
 import MessageList from './components/MessageList'
 
+
 type ActiveRoomProps = {
   roomId: string
   setRoomId: React.Dispatch<React.SetStateAction<string | null>>
@@ -28,9 +34,11 @@ type ActiveRoomProps = {
 }
 
 const PAGE_SIZE = 20
+const NEAR_BOTTOM_PX = 80
 
 const ActiveRoom = ({ roomId, setRoomId, fetchRooms }: ActiveRoomProps) => {
   const { user } = useAuth()
+  const { socket, connected } = useSocket()
 
   const [room, setRoom] = useState<IRoom | null>(null)
   const [members, setMembers] = useState<string[]>([])
@@ -53,6 +61,12 @@ const ActiveRoom = ({ roomId, setRoomId, fetchRooms }: ActiveRoomProps) => {
   const bottomRef = useRef<HTMLDivElement>(null)
   const atBottomRef = useRef(true)
   const snapshotRef = useRef<{ height: number; top: number } | null>(null)
+
+  const isNearBottom = () => {
+    const el = scrollRef.current
+    if (!el) return true
+    return el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BOTTOM_PX
+  }
 
   // ---- Загрузка комнаты и участников ----
   useEffect(() => {
@@ -83,7 +97,7 @@ const ActiveRoom = ({ roomId, setRoomId, fetchRooms }: ActiveRoomProps) => {
     }
   }, [roomId])
 
-  // ---- Загрузка сообщений (когда пользователь — участник) ----
+  // ---- Загрузка истории сообщений ----
   useEffect(() => {
     if (!isMember) {
       setMessages([])
@@ -98,6 +112,8 @@ const ActiveRoom = ({ roomId, setRoomId, fetchRooms }: ActiveRoomProps) => {
     getMessages(roomId, { limit: PAGE_SIZE })
       .then(({ items, hasMore }) => {
         if (ignore) return
+        // На всякий случай сортируем — на случай race REST vs socket
+        items.sort((a, b) => a.created_at.localeCompare(b.created_at))
         setMessages(items)
         setHasMore(hasMore)
         atBottomRef.current = true
@@ -114,7 +130,48 @@ const ActiveRoom = ({ roomId, setRoomId, fetchRooms }: ActiveRoomProps) => {
     }
   }, [roomId, isMember])
 
-  // ---- Скролл: вниз при новом сообщении, восстановление позиции при prepend ----
+  // ---- Socket: join/leave комнаты ----
+  useEffect(() => {
+    if (!socket || !isMember) return
+
+    const join = () => {
+      socket.emit('room:join', roomId, (res) => {
+        if (!res?.ok) console.warn('[socket] room:join failed:', res?.error)
+      })
+    }
+
+    join()
+    socket.on('connect', join)
+
+    return () => {
+      socket.off('connect', join)
+      socket.emit('room:leave', roomId)
+    }
+  }, [socket, isMember, roomId])
+
+  // ---- Socket: приём новых сообщений ----
+  useEffect(() => {
+    if (!socket) return
+
+    const onNew = (msg: IMessageWithUser) => {
+      const fromMe = msg.user_id === user?.id
+      if (!fromMe) atBottomRef.current = isNearBottom()
+
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === msg.id)) return prev
+        const next = [...prev, msg]
+        next.sort((a, b) => a.created_at.localeCompare(b.created_at))
+        return next
+      })
+    }
+
+    socket.on('message:new', onNew)
+    return () => {
+      socket.off('message:new', onNew)
+    }
+  }, [socket, user?.id])
+
+  // ---- Скролл: вниз при новом, восстановление позиции при prepend ----
   useLayoutEffect(() => {
     const el = scrollRef.current
     if (!el) return
@@ -136,7 +193,7 @@ const ActiveRoom = ({ roomId, setRoomId, fetchRooms }: ActiveRoomProps) => {
     const el = scrollRef.current
     if (!el) return
 
-    atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+    atBottomRef.current = isNearBottom()
 
     if (el.scrollTop < 60 && hasMore && !loadingOlder && !messagesLoading && messages.length) {
       handleLoadOlder()
@@ -154,7 +211,13 @@ const ActiveRoom = ({ roomId, setRoomId, fetchRooms }: ActiveRoomProps) => {
         before: messages[0].created_at,
         limit: PAGE_SIZE,
       })
-      setMessages((prev) => [...items, ...prev])
+      setMessages((prev) => {
+        const map = new Map(prev.map((m) => [m.id, m]))
+        for (const m of items) if (!map.has(m.id)) map.set(m.id, m)
+        const next = [...map.values()]
+        next.sort((a, b) => a.created_at.localeCompare(b.created_at))
+        return next
+      })
       setHasMore(hasMore)
     } catch (err) {
       snapshotRef.current = null
@@ -168,10 +231,14 @@ const ActiveRoom = ({ roomId, setRoomId, fetchRooms }: ActiveRoomProps) => {
     try {
       const created = await createMessage(roomId, content)
       atBottomRef.current = true
-      setMessages((prev) => [...prev, created])
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === created.id)) return prev
+        const next = [...prev, created]
+        next.sort((a, b) => a.created_at.localeCompare(b.created_at))
+        return next
+      })
     } catch (err) {
       handleError(err)
-      // пробрасываем дальше, чтобы MessageInput не очищал поле
       throw err
     }
   }
@@ -225,6 +292,26 @@ const ActiveRoom = ({ roomId, setRoomId, fetchRooms }: ActiveRoomProps) => {
                 public
               </span>
             )}
+
+            {isMember && (
+              <span
+                className={
+                  connected
+                    ? 'inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600'
+                    : 'inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground'
+                }
+                title={connected ? 'Connected' : 'Connecting…'}
+              >
+                <span
+                  className={
+                    connected
+                      ? 'size-1.5 rounded-full bg-emerald-500'
+                      : 'size-1.5 rounded-full bg-muted-foreground'
+                  }
+                />
+                {connected ? 'live' : 'offline'}
+              </span>
+            )}
           </div>
 
           {room.description && (
@@ -249,6 +336,7 @@ const ActiveRoom = ({ roomId, setRoomId, fetchRooms }: ActiveRoomProps) => {
                 </Button>
               }
             />
+
             <DropdownMenuContent align='end'>
               {isOwner ? (
                 <>
@@ -343,12 +431,14 @@ const ActiveRoom = ({ roomId, setRoomId, fetchRooms }: ActiveRoomProps) => {
             {room.is_private ? 'Private room' : 'Join the room to read messages'}
           </p>
           <p className='text-xs'>
-            {room.is_private ? 'Ask the owner for an invite' : 'Press Join to become a member'}
+            {room.is_private
+              ? 'Ask the owner for an invite'
+              : 'Press Join to become a member'}
           </p>
         </div>
       )}
 
-      {isMember && <MessageInput onSend={handleSend} />}
+      {isMember && <MessageInput onSend={handleSend} disabled={!connected} />}
     </div>
   )
 }

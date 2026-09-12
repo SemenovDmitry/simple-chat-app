@@ -7,25 +7,32 @@ import profileRouter from './routes/profile.js'
 import roomsRouter from './routes/rooms.js'
 import messagesRouter from './routes/messages.js'
 
+const CORS_ORIGINS = (process.env.CORS_ORIGINS ?? '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean)
+
 export function createServer() {
   const app = express()
 
-  app.use(cors())
+  app.use(
+    cors({
+      origin: CORS_ORIGINS.length ? CORS_ORIGINS : true,
+      credentials: true,
+    })
+  )
   app.use(express.json())
 
-  // Routes
   app.use(healthRouter)
   app.use('/auth', authRouter)
   app.use('/profile', profileRouter)
   app.use('/rooms', roomsRouter)
   app.use('/rooms', messagesRouter)
-  
-  // 404
+
   app.use((_req, res) => {
     res.status(404).json({ success: false, error: 'Not found' })
   })
 
-  // Error handler
   app.use(
     (err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
       console.error(err)

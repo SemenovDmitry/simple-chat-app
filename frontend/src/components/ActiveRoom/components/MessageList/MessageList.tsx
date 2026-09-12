@@ -32,10 +32,10 @@ const MessageList = ({ messages, currentUserId }: MessageListProps) => {
 
             <div
               className={cn(
-                'max-w-[80%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words',
+                'max-w-[80%] rounded-2xl px-3 py-2 text-sm break-words whitespace-pre-wrap',
                 isOwn
                   ? 'rounded-br-sm bg-primary text-primary-foreground'
-                  : 'rounded-bl-sm bg-muted'
+                  : 'rounded-bl-sm bg-muted',
               )}
             >
               {m.content}
