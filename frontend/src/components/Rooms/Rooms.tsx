@@ -1,8 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 
-import { getRooms } from '@/api/room'
 import type { IRoom } from '@/types/models'
-import handleError from '@/utils/handleError'
 import { Button } from '@/components/ui/button'
 import CreateRoomModal from '@/components/CreateRoomModal'
 
@@ -11,23 +9,13 @@ import Room from './components/Room'
 type IRoomProps = {
   roomId: string | null
   setRoomId: (payload: string | null) => void
+  loading: boolean
+  rooms: IRoom[]
+  fetchRooms: () => void
 }
 
-const Rooms = ({ roomId, setRoomId }: IRoomProps) => {
-  const [rooms, setRooms] = useState<IRoom[]>([])
-  const [loading, setLoading] = useState(true)
-  const [edit, setEdit] = useState(false)
-
-  const fetchRooms = useCallback(() => {
-    return getRooms()
-      .then(setRooms)
-      .catch(handleError)
-      .finally(() => setLoading(false))
-  }, [])
-
-  useEffect(() => {
-    fetchRooms()
-  }, [fetchRooms])
+const Rooms = ({ roomId, setRoomId, loading, rooms, fetchRooms }: IRoomProps) => {
+  const [create, setCreate] = useState(false)
 
   if (loading) {
     return (
@@ -41,12 +29,12 @@ const Rooms = ({ roomId, setRoomId }: IRoomProps) => {
     <div className='flex h-full flex-col gap-3'>
       <div className='flex justify-between gap-2'>
         <h2 className="mb-4 text-lg font-semibold">Rooms</h2>
-        <Button type='button' size='sm' onClick={() => setEdit(true)}>
+        <Button type='button' size='sm' onClick={() => setCreate(true)}>
           Create
         </Button>
       </div>
 
-      <CreateRoomModal open={edit} onClose={() => setEdit(false)} onSuccess={fetchRooms} />
+      <CreateRoomModal open={create} onClose={() => setCreate(false)} onSuccess={fetchRooms} />
 
       {!rooms.length ? (
         <div className='flex flex-1 flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground'>

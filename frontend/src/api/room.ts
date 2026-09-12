@@ -1,4 +1,4 @@
-import type { IRoom } from '@/types/models'
+import type { IRoom, IRoomMember } from '@/types/models'
 
 import { request } from './utils'
 
@@ -16,10 +16,10 @@ export function createRoom(data: ICreateRoom): Promise<IRoom> {
   return request<IRoom>('/rooms', { method: 'POST', body: data })
 }
 
-export type IUpddateRoom = Partial<Pick<IRoom, 'name' | 'description' | 'is_private'>>
+export type IUpdateRoom = Partial<Pick<IRoom, 'name' | 'description' | 'is_private'>>
 
-export function updateRoom(data: IUpddateRoom): Promise<IRoom> {
-  return request<IRoom>('/rooms', { method: 'PATCH', body: data })
+export function updateRoom(id: string, data: IUpdateRoom): Promise<IRoom> {
+  return request<IRoom>(`/rooms/${id}`, { method: 'PATCH', body: data })
 }
 
 export function deleteRoom(id: string): Promise<IRoom> {
@@ -34,6 +34,6 @@ export function leaveRoom(id: string): Promise<IRoom> {
   return request<IRoom>(`/rooms/${id}/leave`, { method: 'POST' })
 }
 
-export function getRoomMembers(id: string): Promise<IRoom> {
-  return request<IRoom>(`/rooms/${id}/members`, { method: 'GET' })
+export function getRoomMembers(id: string): Promise<IRoomMember[]> {
+  return request<IRoomMember[]>(`/rooms/${id}/members`, { method: 'GET' })
 }

@@ -12,7 +12,7 @@ const PrivateRoute = () => {
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          minHeight: 'calc(100dvh - 5rem)',
+          minHeight: 'calc(100dvh - 8rem)',
         }}
       >
         <p>Загрузка приложения...</p>
