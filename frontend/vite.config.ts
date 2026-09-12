@@ -12,14 +12,4 @@ export default defineConfig({
     },
   },
   base: '/simple-chat-app/',
-  server: {
-    proxy: {
-      '/api': {
-        target: 'http://localhost:10000',
-        ws: true,
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ''), // Удаляет /api из пути при отправке на бэк
-      },
-    },
-  },
 })

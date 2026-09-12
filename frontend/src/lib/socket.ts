@@ -3,6 +3,8 @@ import { io, type Socket } from 'socket.io-client'
 import { getAccessToken } from '@/api/utils'
 import type { IMessageWithUser } from '@/api/message'
 
+const API_URL = import.meta.env.VITE_API_URL as string
+
 type ServerToClientEvents = {
   'message:new': (msg: IMessageWithUser) => void
 }
@@ -31,10 +33,8 @@ export function connectSocket(token: string): AppSocket {
     return socket
   }
 
-  // io() без URL — используем текущий origin (dev: localhost:5173, prod: фронт-домен).
-  // path указывает, куда слать socket.io-запросы. Vite-прокси /api их перехватит.
-  socket = io({
-    path: '/api/socket.io',
+  socket = io(API_URL, {
+    path: '/socket.io',
     transports: ['websocket'],
     auth: { token },
     autoConnect: true,
