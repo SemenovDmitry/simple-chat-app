@@ -7,25 +7,18 @@ const PrivateRoute = () => {
 
   if (loading) {
     return (
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: 'calc(100dvh - 8rem)',
-        }}
-      >
-        <p>Загрузка приложения...</p>
+      <div className='flex min-h-[calc(100dvh-8rem)] items-center justify-center'>
+        <p className='text-muted-foreground'>App loading...</p>
       </div>
     )
   }
 
   if (!user) {
-    return <Navigate to={'/login'} replace />
+    return <Navigate to='/login' replace />
   }
 
   if (!user.profile) {
-    return <Navigate to={'/profile'} />
+    return <Navigate to='/profile' />
   }
 
   return <Outlet />

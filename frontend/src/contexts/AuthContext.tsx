@@ -1,25 +1,40 @@
-import { createContext, useContext, useState, useEffect, type PropsWithChildren } from 'react'
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  type PropsWithChildren,
+  useCallback,
+} from 'react'
+import { useNavigate } from 'react-router-dom'
 
-import { BASE_URL } from '@/consts/api'
-import type { IUser } from '@/types/models'
+import type { IAuthVerify, IUser, IUserProfile } from '@/types/models'
 import { AUTH_ACCESS_KEY } from '@/consts/storage'
+import { me } from '@/api/auth'
 
 type IAuthContextType = {
   user: IUser | null
   loading: boolean
-  login: (token: string) => Promise<void>
+  login: (payload: IAuthVerify) => Promise<void>
   logout: () => void
-  checkAuth: () => Promise<void>
+  updateAuthProfile: (profile: IUserProfile) => void
 }
 
 const AuthContext = createContext<IAuthContextType | undefined>(undefined)
 
 export const AuthProvider = ({ children }: PropsWithChildren) => {
+  const navigate = useNavigate()
+
   const [user, setUser] = useState<IUser | null>(null)
   const [loading, setLoading] = useState<boolean>(true)
 
-  const login = async (token: string) => {
-    localStorage.setItem(AUTH_ACCESS_KEY, token)
+  const login = async (payload: IAuthVerify) => {
+    setUser(payload.user)
+    localStorage.setItem(AUTH_ACCESS_KEY, payload.access_token)
+
+    setTimeout(() => {
+      navigate('/')
+    }, 1500)
   }
 
   const logout = () => {
@@ -27,7 +42,14 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     setUser(null)
   }
 
-  const checkAuth = async () => {
+  const updateAuthProfile = useCallback((profile: IUserProfile) => {
+    setUser((prev) => {
+      if (!prev) return prev
+      return { ...prev, profile }
+    })
+  }, [])
+
+  useEffect(() => {
     const token = localStorage.getItem(AUTH_ACCESS_KEY)
 
     if (!token) {
@@ -36,37 +58,19 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       return
     }
 
-    try {
-      const response = await fetch(`${BASE_URL}/auth/me`, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      })
-
-      const result = await response.json()
-
-      if (response.ok && result.success) {
-        setUser(result.data)
-      } else {
+    me()
+      .then(setUser)
+      .catch(() => {
         localStorage.removeItem(AUTH_ACCESS_KEY)
         setUser(null)
-      }
-    } catch (error) {
-      console.error('Ошибка проверки авторизации:', error)
-      setUser(null)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    checkAuth()
+      })
+      .finally(() => setLoading(false))
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, checkAuth }}>
+    <AuthContext.Provider
+      value={{ user, loading, login, logout, updateAuthProfile }}
+    >
       {children}
     </AuthContext.Provider>
   )
@@ -75,7 +79,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
 export const useAuth = () => {
   const context = useContext(AuthContext)
   if (context === undefined) {
-    throw new Error('useAuth должен использоваться внутри AuthProvider')
+    throw new Error('useAuth should be inside AuthProvider')
   }
   return context
 }

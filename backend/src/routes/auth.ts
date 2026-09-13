@@ -3,7 +3,7 @@ import { z } from 'zod'
 
 import { supabase } from '../lib/supabase.js'
 import { requireAuth } from '../middleware/auth.js'
-import { FRONTEND_BASE_URL } from '../consts/api.js'
+import { FRONTEND_APP_BASENAME, FRONTEND_BASE_URL } from '../consts/api.js'
 
 const authRouter = Router()
 
@@ -17,10 +17,15 @@ const loginSchema = z.object({
 
 const verifySchema = z.object({
   token_hash: z.string().min(1),
-  type: z
-    .enum(['email', 'magiclink', 'signup', 'invite', 'recovery'])
-    .transform((val) => (val === 'magiclink' ? 'email' : val)),
 })
+
+export async function getProfileLite(userId: string) {
+  return supabase
+    .from('profiles')
+    .select('username, color')
+    .eq('id', userId)
+    .maybeSingle()
+}
 
 // ====================== ROUTES ======================
 authRouter.post('/login', async (req, res) => {
@@ -35,11 +40,11 @@ authRouter.post('/login', async (req, res) => {
   }
 
   const { email } = result.data
-  console.log('FRONTEND_BASE_URL :>> ', FRONTEND_BASE_URL);
+
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
-      emailRedirectTo: `${FRONTEND_BASE_URL}/auth/callback`,
+      emailRedirectTo: `${FRONTEND_BASE_URL}${FRONTEND_APP_BASENAME}/auth/callback`,
     },
   })
 
@@ -62,10 +67,12 @@ authRouter.post('/verify', async (req, res) => {
   const result = verifySchema.safeParse(req.body)
 
   if (!result.success) {
-    return res.status(400).json({ success: false, errors: result.error.flatten().fieldErrors })
+    return res
+      .status(400)
+      .json({ success: false, errors: result.error.flatten().fieldErrors })
   }
 
-  const { token_hash } = result.data // Сюда ваш фронтенд пришлет извлеченный access_token
+  const { token_hash } = result.data
 
   const { data, error } = await supabase.auth.getUser(token_hash)
 
@@ -76,34 +83,39 @@ authRouter.post('/verify', async (req, res) => {
     })
   }
 
+  const user = data.user
+
+  const { data: profile, error: profileError } = await getProfileLite(user.id)
+
+  if (profileError) {
+    return res
+      .status(500)
+      .json({ success: false, message: profileError.message })
+  }
+
   return res.status(200).json({
     success: true,
     message: 'Successfully authenticated',
     data: {
-      access_token: token_hash, // отдаем его же обратно
+      access_token: token_hash,
       user: {
-        id: data.user.id,
-        email: data.user.email,
+        id: user.id,
+        email: user.email,
+        profile,
       },
     },
   })
 })
 
 authRouter.get('/me', requireAuth, async (req, res) => {
-  // Благодаря middleware, объект пользователя уже лежит в req.user
   const user = req.user
 
-  const { data: profile, error } = await supabase
-    .from('profiles')
-    .select('username, color')
-    .eq('id', user.id)
-    .maybeSingle()
+  const { data: profile, error: profileError } = await getProfileLite(user.id)
 
-  if (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    })
+  if (profileError) {
+    return res
+      .status(500)
+      .json({ success: false, message: profileError.message })
   }
 
   return res.status(200).json({

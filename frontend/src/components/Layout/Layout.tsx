@@ -24,10 +24,8 @@ const Layout = ({ children }: PropsWithChildren) => {
 
   return (
     <div className='min-h-screen bg-background'>
-      {/* Header */}
       <header className='sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60'>
         <div className='mx-auto flex h-14 max-w-5xl items-center justify-between px-4'>
-          {/* Logo */}
           <Link
             to='/'
             className='flex items-center text-lg font-semibold tracking-tight transition-opacity hover:opacity-80'
@@ -35,13 +33,14 @@ const Layout = ({ children }: PropsWithChildren) => {
             Simple Chat
           </Link>
 
-          {/* Right side */}
           <div className='flex items-center'>
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger className='flex items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'>
                   <Avatar className='h-9 w-9'>
-                    <AvatarFallback className='text-xs'>{getInitials(user.email)}</AvatarFallback>
+                    <AvatarFallback className='text-xs'>
+                      {getInitials(user.email)}
+                    </AvatarFallback>
                   </Avatar>
                 </DropdownMenuTrigger>
 
@@ -57,7 +56,9 @@ const Layout = ({ children }: PropsWithChildren) => {
                     )}
 
                     <DropdownMenuLabel className='font-normal'>
-                      <p className='text-sm font-medium leading-none'>{user.email}</p>
+                      <p className='text-sm font-medium leading-none'>
+                        {user.email}
+                      </p>
                     </DropdownMenuLabel>
                   </DropdownMenuGroup>
 
@@ -67,21 +68,22 @@ const Layout = ({ children }: PropsWithChildren) => {
                     className='cursor-pointer text-destructive focus:text-destructive'
                     onClick={logout}
                   >
-                    Выйти
+                    Logout
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
               <Link to='/login' className='flex items-center'>
-                <Button size='sm'>Войти</Button>
+                <Button size='sm'>Login</Button>
               </Link>
             )}
           </div>
         </div>
       </header>
 
-      {/* Content */}
-      <main className='mx-auto flex max-w-5xl flex-col px-4 py-6'>{children}</main>
+      <main className='mx-auto flex max-w-5xl flex-col px-4 py-6'>
+        {children}
+      </main>
     </div>
   )
 }

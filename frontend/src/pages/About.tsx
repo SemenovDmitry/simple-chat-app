@@ -1,7 +1,5 @@
 function About() {
-  return (
-    <p>About</p>
-  )
+  return <p>Socket sudy project</p>
 }
 
 export default About

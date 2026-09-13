@@ -40,7 +40,6 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     s.on('connect', onConnect)
     s.on('disconnect', onDisconnect)
 
-    // socket.io-client может уже быть подключён на момент подписки
     if (s.connected) setConnected(true)
 
     return () => {

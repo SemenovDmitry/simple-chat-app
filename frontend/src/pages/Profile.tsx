@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react'
 import { z } from 'zod'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useNavigate } from 'react-router-dom'
 
 import { useAuth } from '@/contexts/AuthContext'
 import { createProfile, updateProfile } from '@/api/profile'
-
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -18,18 +18,24 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { useNavigate } from 'react-router-dom'
+import handleError from '@/utils/handleError'
 
 const profileSchema = z.object({
-  username: z.string().min(2, 'Минимум 2 символа').max(30, 'Максимум 30 символов'),
-  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Цвет должен быть в формате #RRGGBB'),
+  username: z
+    .string()
+    .min(2, 'At least 2 characters')
+    .max(30, 'At most 30 characters'),
+  color: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/, 'Color must be in #RRGGBB format'),
 })
 
 type IProfileFormValues = z.infer<typeof profileSchema>
 
 function Profile() {
-  const { user } = useAuth()
   const navigate = useNavigate()
+
+  const { user, updateAuthProfile } = useAuth()
 
   const isEdit = Boolean(user?.profile)
 
@@ -52,12 +58,16 @@ function Profile() {
   const {
     register,
     handleSubmit,
-    watch,
+    setValue,
+    control,
     formState: { errors },
   } = useForm<IProfileFormValues>({
     resolver: zodResolver(profileSchema),
     values: defaultValues,
   })
+
+  const color = useWatch({ control, name: 'color' })
+  const username = useWatch({ control, name: 'username' })
 
   const onSubmit = async (values: IProfileFormValues) => {
     setSaving(true)
@@ -66,15 +76,15 @@ function Profile() {
 
     try {
       if (isEdit) {
-        await updateProfile(values)
-        setSuccess('Профиль обновлён')
+        await updateProfile(values).then(updateAuthProfile).catch(handleError)
+        setSuccess('Profile updated')
       } else {
         await createProfile(values)
-        setSuccess('Профиль создан')
+        setSuccess('Profile created')
         setTimeout(() => navigate('/'), 2000)
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка сохранения')
+      setError(err instanceof Error ? err.message : 'Failed to save profile')
     } finally {
       setSaving(false)
     }
@@ -83,7 +93,7 @@ function Profile() {
   if (!user) {
     return (
       <div className='flex min-h-[50vh] items-center justify-center'>
-        <p className='text-muted-foreground'>Войдите, чтобы управлять профилем</p>
+        <p className='text-muted-foreground'>Sign in to manage your profile</p>
       </div>
     )
   }
@@ -95,18 +105,18 @@ function Profile() {
           <div className='mb-4 flex justify-center'>
             <Avatar className='h-15 w-15'>
               <AvatarFallback className='text-xl text-white'>
-                {(watch('username') || '?').slice(0, 2).toUpperCase()}
+                {(username || '?').slice(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
           </div>
-          <CardTitle>{isEdit ? 'Редактировать профиль' : 'Создать профиль'}</CardTitle>
+          <CardTitle>{isEdit ? 'Edit profile' : 'Create profile'}</CardTitle>
           <CardDescription>{user.email}</CardDescription>
         </CardHeader>
 
         <form onSubmit={handleSubmit(onSubmit)}>
           <CardContent className='mb-4 space-y-4'>
             <div className='space-y-2'>
-              <Label htmlFor='username'>Имя пользователя</Label>
+              <Label htmlFor='username'>Username</Label>
               <Input
                 id='username'
                 placeholder='username'
@@ -115,32 +125,50 @@ function Profile() {
                 {...register('username')}
               />
               {errors.username && (
-                <p className='text-sm text-destructive'>{errors.username.message}</p>
+                <p className='text-sm text-destructive'>
+                  {errors.username.message}
+                </p>
               )}
             </div>
 
             <div className='space-y-2'>
-              <Label htmlFor='color'>Цвет</Label>
+              <Label htmlFor='color'>Color</Label>
               <div className='flex items-center gap-3'>
                 <Input
-                  id='color'
+                  id='color-picker'
                   type='color'
+                  value={color}
+                  onChange={(e) =>
+                    setValue('color', e.target.value, { shouldValidate: true })
+                  }
                   className='h-10 w-14 cursor-pointer p-1'
+                  disabled={saving}
+                />
+                <Input
+                  id='color'
+                  placeholder='#6366f1'
                   disabled={saving}
                   {...register('color')}
                 />
-                <Input placeholder='#6366f1' disabled={saving} {...register('color')} />
               </div>
-              {errors.color && <p className='text-sm text-destructive'>{errors.color.message}</p>}
+              {errors.color && (
+                <p className='text-sm text-destructive'>
+                  {errors.color.message}
+                </p>
+              )}
             </div>
 
-            {error && <p className='text-center text-sm text-destructive'>{error}</p>}
-            {success && <p className='text-center text-sm text-green-600'>{success}</p>}
+            {error && (
+              <p className='text-center text-sm text-destructive'>{error}</p>
+            )}
+            {success && (
+              <p className='text-center text-sm text-green-600'>{success}</p>
+            )}
           </CardContent>
 
           <CardFooter className='flex flex-col gap-2'>
             <Button type='submit' className='w-full' disabled={saving}>
-              {saving ? 'Сохранение...' : isEdit ? 'Сохранить' : 'Создать профиль'}
+              {saving ? 'Saving…' : isEdit ? 'Save' : 'Create profile'}
             </Button>
           </CardFooter>
         </form>

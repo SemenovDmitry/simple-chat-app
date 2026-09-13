@@ -15,14 +15,15 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { BASE_URL } from '@/consts/api'
 import { useAuth } from '@/contexts/AuthContext'
+import { login } from '@/api/auth'
+import getErrorMessage from '@/utils/getErrorMessage'
 
 const loginSchema = z.object({
-  email: z.string().min(1, 'Email обязателен').email('Некорректный email'),
+  email: z.string().min(1, 'Email is required').email('Invalid email'),
 })
 
-type LoginFormValues = z.infer<typeof loginSchema>
+type ILoginFormValues = z.infer<typeof loginSchema>
 
 function Login() {
   const { user } = useAuth()
@@ -35,33 +36,18 @@ function Login() {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<LoginFormValues>({
+  } = useForm<ILoginFormValues>({
     resolver: zodResolver(loginSchema),
   })
 
-  const onSubmit = async (data: LoginFormValues) => {
+  const onSubmit = (data: ILoginFormValues) => {
     setIsLoading(true)
     setError(null)
 
-    try {
-      const res = await fetch(`${BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      })
-
-      const json = await res.json()
-
-      if (!res.ok) {
-        throw new Error(json.message || 'Ошибка авторизации')
-      }
-
-      setIsSuccess(true)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Что-то пошло не так')
-    } finally {
-      setIsLoading(false)
-    }
+    login(data)
+      .then(() => setIsSuccess(true))
+      .catch((err) => setError(getErrorMessage(err, 'Failed to send link')))
+      .finally(() => setIsLoading(false))
   }
 
   if (user) {
@@ -70,17 +56,21 @@ function Login() {
 
   if (isSuccess) {
     return (
-      <div className='min-h-[calc(100vh-8rem)] flex items-center justify-center bg-background px-4'>
+      <div className='flex min-h-[calc(100vh-8rem)] items-center justify-center bg-background px-4'>
         <Card className='w-full max-w-md'>
           <CardHeader className='text-center'>
-            <CardTitle className='text-2xl'>Проверьте почту</CardTitle>
+            <CardTitle className='text-2xl'>Check your email</CardTitle>
             <CardDescription>
-              Мы отправили вам ссылку для входа. Перейдите по ней, чтобы продолжить.
+              We've sent you a sign-in link. Open it to continue.
             </CardDescription>
           </CardHeader>
           <CardFooter>
-            <Button variant='outline' className='w-full' onClick={() => setIsSuccess(false)}>
-              Отправить ещё раз
+            <Button
+              variant='outline'
+              className='w-full'
+              onClick={() => setIsSuccess(false)}
+            >
+              Send again
             </Button>
           </CardFooter>
         </Card>
@@ -89,16 +79,18 @@ function Login() {
   }
 
   return (
-    <div className='min-h-[calc(100vh-8rem)] flex items-center justify-center bg-background px-4'>
+    <div className='flex min-h-[calc(100vh-8rem)] items-center justify-center bg-background px-4'>
       <Card className='w-full max-w-md'>
-        <CardHeader className='text-center space-y-2'>
-          <CardTitle className='text-2xl font-bold'>Вход в чат</CardTitle>
-          <CardDescription>Введите email — мы пришлём ссылку для входа</CardDescription>
+        <CardHeader className='space-y-2 text-center'>
+          <CardTitle className='text-2xl font-bold'>Sign in to chat</CardTitle>
+          <CardDescription>
+            Enter your email — we'll send you a sign-in link
+          </CardDescription>
         </CardHeader>
 
         <form onSubmit={handleSubmit(onSubmit)}>
           <CardContent className='space-y-4'>
-            <div className='space-y-2 mb-4'>
+            <div className='mb-4 space-y-2'>
               <Label htmlFor='email'>Email</Label>
               <Input
                 id='email'
@@ -107,15 +99,21 @@ function Login() {
                 disabled={isLoading}
                 {...register('email')}
               />
-              {errors.email && <p className='text-sm text-destructive'>{errors.email.message}</p>}
+              {errors.email && (
+                <p className='text-sm text-destructive'>
+                  {errors.email.message}
+                </p>
+              )}
             </div>
 
-            {error && <p className='text-sm text-destructive text-center'>{error}</p>}
+            {error && (
+              <p className='text-center text-sm text-destructive'>{error}</p>
+            )}
           </CardContent>
 
           <CardFooter>
             <Button type='submit' className='w-full' disabled={isLoading}>
-              {isLoading ? 'Отправляем...' : 'Получить ссылку'}
+              {isLoading ? 'Sending…' : 'Get link'}
             </Button>
           </CardFooter>
         </form>

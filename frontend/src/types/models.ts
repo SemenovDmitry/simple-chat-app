@@ -1,5 +1,7 @@
 export type IUserStatus = 'online' | 'offline'
 
+export type ILoginInput = Pick<IUser, 'email'>
+
 export type IUser = {
   id: string
   email: string
@@ -13,6 +15,8 @@ export type IUserProfile = {
   created_at: string
   updated_at: string
 }
+
+export type IUserProfileInput = Pick<IUserProfile, 'username' | 'color'>
 
 export type IRoom = {
   id: string
@@ -34,4 +38,9 @@ export type IMessage = {
 export type IApiResponse<T> = {
   data: T
   message?: string
+}
+
+export type IAuthVerify = {
+  access_token: string
+  user: IUser
 }

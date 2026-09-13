@@ -1,69 +1,43 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 
 import { useAuth } from '@/contexts/AuthContext'
-import { BASE_URL } from '@/consts/api'
+import { verifyToken } from '@/api/auth'
 
 function VerifyToken() {
   const { login } = useAuth()
 
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
-
-  const navigate = useNavigate()
+  const [status, setStatus] = useState<'loading' | 'success' | 'error'>(
+    'loading',
+  )
 
   useEffect(() => {
     const hash = window.location.hash.substring(1)
-
     const params = new URLSearchParams(hash)
     const accessToken = params.get('access_token')
-    const type = params.get('type') 
 
-    if (!accessToken || !type) {
-      console.error('Необходимые параметры отсутствуют в URL')
+    if (!accessToken) {
       setStatus('error')
       return
     }
 
-    // 3. Отправляем запрос на ваш бэкенд
-    const verifyToken = async () => {
-      try {
-        const response = await fetch(`${BASE_URL}/auth/verify`, {
-          // укажите ваш порт бэкенда
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            token_hash: accessToken, // передаем токен как hash
-            type: type === 'magiclink' ? 'email' : type, // корректируем тип под Zod схему, если нужно ('email')
-          }),
-        })
-
-        const result = await response.json()
-
-        if (response.ok && result.success) {
-          setStatus('success')
-          console.log('Успешная авторизация:', result.data)
-          login(result.data.access_token)
-          setTimeout(() => {
-            navigate('/')
-          }, 1500);
-        } else {
-          console.error('Ошибка бэкенда:', result.message)
-          setStatus('error')
-        }
-      } catch (err) {
-        console.error('Ошибка сети:', err)
+    verifyToken(accessToken)
+      .then((data) => {
+        login(data)
+        setStatus('success')
+      })
+      .catch((err) => {
+        console.error('Auth error:', err)
         setStatus('error')
-      }
-    }
-
-    verifyToken()
+      })
   }, [])
 
   return (
     <div>
-      {status === 'loading' && <p>Авторизация... Пожалуйста, подождите.</p>}
-      {status === 'success' && <p>Вход успешно выполнен! Перенаправление...</p>}
-      {status === 'error' && <p>Ошибка авторизации. Ссылка устарела или недействительна.</p>}
+      {status === 'loading' && <p>Signing in… Please wait.</p>}
+      {status === 'success' && <p>Signed in successfully! Redirecting…</p>}
+      {status === 'error' && (
+        <p>Authentication failed. The link has expired or is invalid.</p>
+      )}
     </div>
   )
 }
