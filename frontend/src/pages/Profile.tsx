@@ -81,12 +81,12 @@ function Profile() {
       } else {
         await createProfile(values)
         setSuccess('Profile created')
-        setTimeout(() => navigate('/'), 2000)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save profile')
     } finally {
       setSaving(false)
+      setTimeout(() => navigate('/'), 2000)
     }
   }
 
